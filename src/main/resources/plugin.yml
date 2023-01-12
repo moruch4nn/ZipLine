@@ -1,0 +1,14 @@
+name: ZipLine
+main: dev.mr3n.zipline.ZipLine
+version: 1.0
+
+commands:
+  zipline:
+    permission: zipline.admin
+    description: ziplineの管理をするコマンドです。
+permissions:
+  zipline:
+    children:
+      admin:
+        description: zipline管理するコマンドを作成できます。
+        default: op
