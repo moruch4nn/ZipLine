@@ -7,11 +7,7 @@ import dev.moru3.minepie.events.EventRegister.Companion.registerEvent
 import dev.mr3n.zipline.commands.ZipLineCommand
 import dev.mr3n.zipline.items.ZipLineCreator
 import dev.mr3n.zipline.nms.nmsSetPositionRotation
-import org.bukkit.Bukkit
-import org.bukkit.Color
-import org.bukkit.Location
-import org.bukkit.NamespacedKey
-import org.bukkit.Particle
+import org.bukkit.*
 import org.bukkit.entity.ArmorStand
 import org.bukkit.entity.Player
 import org.bukkit.event.player.PlayerMoveEvent
@@ -56,6 +52,7 @@ class ZipLine: JavaPlugin() {
         this.runTaskTimerAsync(2L, 2L) {
             ZIP_LINES_ROUGH.forEach w@{ (world, zip) -> zip.forEach { (name, roughnessRoute) ->
                 queuePlayers.forEach q@{ player ->
+                    if(player.gameMode == GameMode.SPECTATOR) { return@q }
                     if(player.world.name!=world) { return@w }
                     // ワールド内のすべてのジップラインを取得
                     var index = -1
@@ -104,6 +101,7 @@ class ZipLine: JavaPlugin() {
                     // ジップラインから離れている場合はignorePlayersから削除
                     ignorePlayers.remove(player)
                 }
+                queuePlayers.clear()
             } }
         }
 
