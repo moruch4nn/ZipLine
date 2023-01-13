@@ -50,6 +50,7 @@ class ZipLine: JavaPlugin() {
 
         // なんか重そうだから非同期で実行
         this.runTaskTimerAsync(2L, 2L) {
+            val near = mutableSetOf<Player>()
             ZIP_LINES_ROUGH.forEach w@{ (world, zip) -> zip.forEach { (name, roughnessRoute) ->
                 queuePlayers.forEach q@{ player ->
                     if(player.gameMode == GameMode.SPECTATOR) { return@q }
@@ -59,6 +60,7 @@ class ZipLine: JavaPlugin() {
                     // ジップラインのルート
                     val first = roughnessRoute.find { index++;it.distance(player.location) < 2 }
                     if(first!=null) {
+                        near.add(player)
                         // ignorePlayersに入っている場合はreturn
                         //Q.なんで一番上に書かないの？ A.ジップラインから離れた際にignorePlayersからプレイヤーを消す処理が必要だから。
                         if(ignorePlayers.contains(player)) { return@q }
@@ -96,13 +98,12 @@ class ZipLine: JavaPlugin() {
                                 runTask { player.rideZip(route.subList(0,index).reversed()) }
                             }
                         }
-                        return@q
                     }
-                    // ジップラインから離れている場合はignorePlayersから削除
-                    ignorePlayers.remove(player)
                 }
-                queuePlayers.clear()
+
             } }
+            ignorePlayers.removeAll(queuePlayers.filterNot { near.contains(it) })
+            queuePlayers.clear()
         }
 
         // >>> PlayerMoveEvent >>>
