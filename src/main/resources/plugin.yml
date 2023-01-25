@@ -1,7 +1,8 @@
 name: ZipLine
 main: dev.mr3n.zipline.ZipLine
 version: 1.0
-
+softdepend:
+  - Multiverse-Core
 commands:
   zipline:
     permission: zipline.admin
