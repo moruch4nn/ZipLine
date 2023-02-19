@@ -23,6 +23,8 @@ class ZipLine: JavaPlugin() {
     // このリストに入っているプレイヤーはジップラインに乗れなくなります。
     private val ignorePlayers = mutableListOf<Player>()
 
+    private val armorStands = mutableSetOf<ArmorStand>()
+
     override fun onEnable() {
         INSTANCE = this
 
@@ -47,6 +49,14 @@ class ZipLine: JavaPlugin() {
 
         // 動いたプレイヤーを格納する。(PlayerMoveEvent)
         val queuePlayers = mutableSetOf<Player>()
+
+        this.runTaskTimerAsync(1L,1L) {
+            this.armorStands.forEach { armorStand ->
+                if(this.armorStands.any { it.location.distance(armorStand.location) < 0.5 }) {
+                    armorStand.passengers.forEach { armorStand.removePassenger(it) }
+                }
+            }
+        }
 
         // なんか重そうだから非同期で実行
         this.runTaskTimerAsync(2L, 2L) {
@@ -118,7 +128,7 @@ class ZipLine: JavaPlugin() {
         reload()
     }
 
-    fun Player.rideZip(route: List<Location>) {
+    private fun Player.rideZip(route: List<Location>) {
         val player = this
         val first = route.first()
         val last = route.last()
