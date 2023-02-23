@@ -1,6 +1,7 @@
 name: ZipLine
 main: dev.mr3n.zipline.ZipLine
 version: 1.0
+api-version: 1.19
 softdepend:
   - Multiverse-Core
 commands:

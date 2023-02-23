@@ -14,7 +14,6 @@ import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitTask
-import kotlin.math.ceil
 
 class ZipLine: JavaPlugin() {
 
@@ -51,10 +50,14 @@ class ZipLine: JavaPlugin() {
         val queuePlayers = mutableSetOf<Player>()
 
         this.runTaskTimerAsync(1L,1L) {
+            val removeStands = mutableSetOf<ArmorStand>()
             this.armorStands.forEach { armorStand ->
-                if(this.armorStands.any { it.location.distance(armorStand.location) < 0.5 }) {
-                    armorStand.passengers.forEach { armorStand.removePassenger(it) }
-                }
+                if(armorStand in removeStands) { return@forEach }
+                // removeStands.addAll(this.armorStands.filter{it!=armorStand}.filter{it.location.distance(armorStand.location)<2})
+            }
+            this.armorStands.removeAll(removeStands)
+            removeStands.forEach { armorStand ->
+                this.runTask { armorStand.remove() }
             }
         }
 
@@ -66,9 +69,10 @@ class ZipLine: JavaPlugin() {
                     if(player.gameMode == GameMode.SPECTATOR) { return@q }
                     if(player.world.name!=world) { return@w }
                     // ワールド内のすべてのジップラインを取得
-                    var index = -1
                     // ジップラインのルート
-                    val first = roughnessRoute.find { index++;it.distance(player.location) < 2 }
+                    val keys = roughnessRoute.keys.sortedBy { it.distance(player.location) }
+                    if(keys.first().distance(player.location) > 30) { return@q }
+                    val first = roughnessRoute[keys.first()]?.find { it.distance(player.location) < 1 }
                     if(first!=null) {
                         near.add(player)
                         // ignorePlayersに入っている場合はreturn
@@ -77,8 +81,7 @@ class ZipLine: JavaPlugin() {
                         ignorePlayers.add(player)
                         // ジップラインのルート(軽量化用の荒いやつじゃなくてちゃんとしたやつ)
                         val route = ZIP_LINES[world]!![name]!!
-                        // 荒いやつはサイズが小さいのでフルのやつに合わせる
-                        index *= ceil(route.size.toDouble() / roughnessRoute.size).toInt()
+                        val index = route.indexOf(first)
                         // プレイヤーが触れた場所
                         val loc = route[index]
                         // プレイヤーの触れた場所から一個進んだ場所
@@ -144,12 +147,12 @@ class ZipLine: JavaPlugin() {
         armorStand.isInvisible = true
         // プレイヤーを乗せる
         armorStand.addPassenger(player)
+        this@ZipLine.armorStands.add(armorStand)
         // アーマースタンドを動かすタスク
         var bukkitTask: BukkitTask? = null
         val iterator = route.iterator()
-        var old: Location = first
         bukkitTask = this@ZipLine.runTaskTimer(1, 1) {
-            if(armorStand.passengers.isEmpty()) {
+            if(armorStand.isDead||armorStand.passengers.isEmpty()) {
                 // if:アーマースタンドからプレイヤーが降りた場合は削除
                 bukkitTask?.cancel()
                 armorStand.remove()
@@ -160,7 +163,7 @@ class ZipLine: JavaPlugin() {
                     // 次のLocationを取得
                     val next = iterator.next()
                     // アーマースタンドを移動させる。
-                    armorStand.nmsSetPositionRotation(next.x, next.y, next.z)
+                    armorStand.nmsSetPositionRotation(next.x, next.y, next.z, 0f, 0f)
 
                     // >>> 速度を出すために次のイテレーターをチョット進めておく。 >>>
                     // -1.0 ~ 1.0
@@ -171,11 +174,11 @@ class ZipLine: JavaPlugin() {
                     // <<< 速度を出すために次のイテレーターをチョット進めておく。 <<<
 
                     // いい感じの係数が見つからなかったため等速にしています。
-                    repeat(4) { if (iterator.hasNext()) { old =  iterator.next() } }
+                    repeat(4) { if (iterator.hasNext()) { iterator.next() } }
                 } else {
                     // if:ルートがなくなった場合
                     // アーマースタンドを最終地点にテレポート
-                    armorStand.nmsSetPositionRotation(last.x, last.y, last.z)
+                    armorStand.nmsSetPositionRotation(last.x, last.y, last.z, 0f, 0f)
                     bukkitTask?.cancel()
                     armorStand.remove()
                     // 降りた際にすぐにジップラインが反応しないようにする
@@ -187,7 +190,7 @@ class ZipLine: JavaPlugin() {
         armorStand.persistentDataContainer.set(taskIdKey, PersistentDataType.INTEGER, bukkitTask.taskId)
     }
 
-    fun genPath(locations: List<Location>,roughness: Int): List<Location> {
+    private fun genPath(locations: List<Location>, roughness: Int): List<Location> {
         if(locations.isEmpty()) { return listOf() } else if(locations.size < 2) { return listOf(locations.first()) }
         val result = mutableListOf<Location>()
         repeat(locations.size-1) { index ->
@@ -219,7 +222,7 @@ class ZipLine: JavaPlugin() {
         // << 下の文を短く記述するために関数を作成 <<
         // configからzipLineの一覧を取得し変数に格納
         ZIP_LINES = keys("lines").aw { w -> keys("lines.${w}").aw { z -> genPath(keys("lines.${w}.${z}").map { index -> config.getLocation("lines.${w}.${z}.${index}")!! },1) } }
-        ZIP_LINES_ROUGH = ZIP_LINES.mapValues{it.value.mapValues{t->t.value.filterIndexed{i,_->i%5==0}}}
+        ZIP_LINES_ROUGH = ZIP_LINES.mapValues { it.value.mapValues {t->t.value.chunked(100).associateBy {i->i[i.size/2]}.mapValues {f->f.value.filterIndexed{i,_->i%4==0} } } }
     }
 
     companion object {
@@ -227,7 +230,7 @@ class ZipLine: JavaPlugin() {
         var ZIP_LINES = mapOf<String,Map<String, List<Location>>>()
             private set
 
-        var ZIP_LINES_ROUGH = mapOf<String,Map<String, List<Location>>>()
+        var ZIP_LINES_ROUGH = mapOf<String,Map<String, Map<Location,List<Location>>>>()
             private set
 
         // プラグインインスタンス
