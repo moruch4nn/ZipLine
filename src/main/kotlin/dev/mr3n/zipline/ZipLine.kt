@@ -14,15 +14,17 @@ import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitTask
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CopyOnWriteArraySet
 
 class ZipLine: JavaPlugin() {
 
     private val taskIdKey = NamespacedKey(this, "TASK_ID")
 
     // このリストに入っているプレイヤーはジップラインに乗れなくなります。
-    private val ignorePlayers = mutableListOf<Player>()
+    private val ignorePlayers = CopyOnWriteArrayList<Player>()
 
-    private val armorStands = mutableSetOf<ArmorStand>()
+    private val armorStands = CopyOnWriteArraySet<ArmorStand>()
 
     override fun onEnable() {
         INSTANCE = this
